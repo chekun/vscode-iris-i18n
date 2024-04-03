@@ -1,6 +1,6 @@
 {
     "name": "iris-i18n",
-    "displayName": "vscode extension for Iris i18n development.",
+    "displayName": "iris i18n",
     "version": "1.0.0",
     "description": "An awesome vscode extension boilerplate",
     "publisher": "chekun",
