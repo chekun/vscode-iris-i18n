@@ -2,7 +2,7 @@
     "name": "iris-i18n",
     "displayName": "iris i18n",
     "version": "1.0.0",
-    "description": "An awesome vscode extension boilerplate",
+    "description": "iris i18n tool for vscode",
     "publisher": "chekun",
     "private": true,
     "preview": true,
@@ -37,17 +37,14 @@
         {
             "url": "https://img.shields.io/badge/PRs-welcome-brightgreen.svg",
             "description": "PRs Welcome",
-            "href": "https://github.com/tjx666/awesome-vscode-extension-boilerplate/fork"
+            "href": "https://github.com/chekun/vscode-iris-i18n/fork"
         }
     ],
-    "activationEvents": [],
+    "activationEvents": [
+        "onLanguage:go"
+    ],
     "contributes": {
-        "commands": [
-            {
-                "command": "iris-i18n.helloWorld",
-                "title": "Hello World"
-            }
-        ]
+        "commands": []
     },
     "eslintConfig": {
         "extends": "@yutengjing/eslint-config-typescript",
