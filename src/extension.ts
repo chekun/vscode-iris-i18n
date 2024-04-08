@@ -3,65 +3,61 @@ import * as path from 'node:path';
 
 import * as vscode from 'vscode';
 
-let activeEditor: vscode.TextEditor | undefined = vscode.window.activeTextEditor;
-let decorationType: vscode.TextEditorDecorationType | undefined;
-let translations: { [language: string]: { [key: string]: string } } = {};
-let displayLanguage: string = ''; // @todo display translated text at the same position
-let localePath: string = '';
-let configJsonPath: string = '';
+const workspaceStates = new Map<
+    string,
+    {
+        activeEditor: vscode.TextEditor | undefined;
+        decorationType: vscode.TextEditorDecorationType | undefined;
+        translations: { [language: string]: { [key: string]: string } };
+        displayLanguage: string;
+        localePath: string;
+        configJsonPath: string;
+    }
+>();
 
 /**
- * Check .iris-i18n.json existence
+ * Check .iris-i18n.json
  */
-function isPluginActive(): boolean {
-    const workspaceFolders = vscode.workspace.workspaceFolders;
-    if (!workspaceFolders || workspaceFolders.length === 0) {
-        return false;
-    }
-    const rootPath = workspaceFolders[0].uri.fsPath;
-    configJsonPath = path.join(rootPath, '.iris-i18n.json');
+function isPluginActiveInWorkspace(workspaceFolder: vscode.WorkspaceFolder): boolean {
+    const configJsonPath = path.join(workspaceFolder.uri.fsPath, '.iris-i18n.json');
     return fs.existsSync(configJsonPath);
 }
 
 /**
  * Read .iris-i18n.json and update localePath
  */
-function readConfigFile(): void {
-    const workspaceFolders = vscode.workspace.workspaceFolders;
-    if (!workspaceFolders || workspaceFolders.length === 0) {
-        return;
-    }
-    const configFilePath = configJsonPath;
+function readConfigFileForWorkspace(workspaceFolder: vscode.WorkspaceFolder): void {
+    const configJsonPath = path.join(workspaceFolder.uri.fsPath, '.iris-i18n.json');
     try {
-        const config: { locale_path: string; display_language: string } = JSON.parse(
-            fs.readFileSync(configFilePath, 'utf8'),
-        );
-        localePath = path.join(workspaceFolders[0].uri.fsPath, config.locale_path);
-        displayLanguage = config.display_language;
-        updateTranslations();
+        const config = JSON.parse(fs.readFileSync(configJsonPath, 'utf8'));
+        const state = workspaceStates.get(workspaceFolder.uri.toString())!;
+        state.localePath = path.join(workspaceFolder.uri.fsPath, config.locale_path);
+        state.displayLanguage = config.display_language;
+        updateTranslationsForWorkspace(workspaceFolder);
     } catch (error) {
         console.error('Error reading .iris-i18n.json:', error);
     }
 }
 
 /**
- * Update translations
+ * Update workspace translations
  */
-function updateTranslations(): void {
-    if (!localePath) {
+function updateTranslationsForWorkspace(workspaceFolder: vscode.WorkspaceFolder): void {
+    const state = workspaceStates.get(workspaceFolder.uri.toString())!;
+    if (!state.localePath) {
         return;
     }
-    translations = {};
-    fs.readdirSync(localePath).forEach((languageFolder) => {
-        const languagePath = path.join(localePath, languageFolder);
+    state.translations = {};
+    fs.readdirSync(state.localePath).forEach((languageFolder) => {
+        const languagePath = path.join(state.localePath, languageFolder);
         if (fs.statSync(languagePath).isDirectory()) {
-            translations[languageFolder] = {};
+            state.translations[languageFolder] = {};
             fs.readdirSync(languagePath).forEach((file) => {
                 if (path.extname(file) === '.json') {
                     const filePath = path.join(languagePath, file);
                     try {
                         const translationData = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-                        Object.assign(translations[languageFolder], translationData);
+                        Object.assign(state.translations[languageFolder], translationData);
                     } catch (error) {
                         console.error(`Error reading ${file}:`, error);
                     }
@@ -69,56 +65,64 @@ function updateTranslations(): void {
             });
         }
     });
-    updateDecorations();
+    updateDecorationsForWorkspace(workspaceFolder);
 }
 
 /**
- * Watch localePath
+ * Watch changes for workspace locale files
  */
-function watchLocaleFiles(): void {
-    if (!localePath) {
+function watchLocaleFilesForWorkspace(workspaceFolder: vscode.WorkspaceFolder): void {
+    const state = workspaceStates.get(workspaceFolder.uri.toString())!;
+    if (!state.localePath) {
         return;
     }
-    fs.watch(localePath, { recursive: true }, (eventType: string, filename: string | null) => {
-        if (eventType === 'change' && path.extname(filename!) === '.json') {
-            updateTranslations();
-        }
-    });
+    fs.watch(
+        state.localePath,
+        { recursive: true },
+        (eventType: string, filename: string | null) => {
+            if (eventType === 'change' && path.extname(filename!) === '.json') {
+                updateTranslationsForWorkspace(workspaceFolder);
+            }
+        },
+    );
 }
 
 /**
- * CreateDecorationType
+ * Create DecorationType for each workspace
  */
-function createDecorationType(): void {
-    decorationType = vscode.window.createTextEditorDecorationType({
+function createDecorationTypeForWorkspace(workspaceFolder: vscode.WorkspaceFolder): void {
+    const state = workspaceStates.get(workspaceFolder.uri.toString())!;
+    state.decorationType = vscode.window.createTextEditorDecorationType({
         textDecoration: 'underline dashed',
         rangeBehavior: vscode.DecorationRangeBehavior.ClosedClosed,
     });
 }
 
 /**
- * UpdateDecorations
+ * Update Decorations for each workspace
  */
-function updateDecorations(): void {
-    if (!activeEditor || !decorationType) {
+function updateDecorationsForWorkspace(workspaceFolder: vscode.WorkspaceFolder): void {
+    const state = workspaceStates.get(workspaceFolder.uri.toString())!;
+    if (!state.activeEditor || !state.decorationType) {
         return;
     }
 
-    const text = activeEditor.document.getText();
+    const text = state.activeEditor.document.getText();
     const regex = /ctx\.Tr\("(.+?)"\)/g;
     const decorationsArray: vscode.DecorationOptions[] = [];
     let match: RegExpExecArray | null;
     // eslint-disable-next-line no-cond-assign
     while ((match = regex.exec(text)) !== null) {
-        const startPos = activeEditor.document.positionAt(match.index + 8);
-        const endPos = activeEditor.document.positionAt(match.index + match[0].length - 2);
+        const startPos = state.activeEditor.document.positionAt(match.index + 8);
+        const endPos = state.activeEditor.document.positionAt(match.index + match[0].length - 2);
         const lines: string[] = [];
-        for (displayLanguage in translations) {
-            const translatedText = translations[displayLanguage]?.[match[1]] || match[1];
+        let displayLanguage: string;
+        for (displayLanguage in state.translations) {
+            const translatedText = state.translations[displayLanguage]?.[match[1]] || match[1];
             lines.push(`${displayLanguage}: ${translatedText}`);
         }
         const md = new vscode.MarkdownString(
-            `#### iris-i18n \n<div style="line-height:20px;">${lines.join('</div><div style="line-height:20px;">')}</div>`,
+            `#### iris i18n \n<div style="line-height:20px;">${lines.join('</div><div style="line-height:20px;">')}</div>`,
         );
         md.supportHtml = true;
         md.isTrusted = true;
@@ -128,66 +132,61 @@ function updateDecorations(): void {
         };
         decorationsArray.push(decoration);
     }
-    activeEditor.setDecorations(decorationType, decorationsArray);
+    state.activeEditor.setDecorations(state.decorationType, decorationsArray);
 }
 
 /**
- * Activate
+ * Activate extension
  */
 function activate(context: vscode.ExtensionContext): void {
-    if (!isPluginActive()) {
-        return;
+    vscode.workspace.workspaceFolders?.forEach(initializeWorkspace);
+
+    vscode.workspace.onDidChangeWorkspaceFolders((event) => {
+        event.removed.forEach((workspaceFolder) => {
+            const state = workspaceStates.get(workspaceFolder.uri.toString());
+            state?.decorationType?.dispose();
+            workspaceStates.delete(workspaceFolder.uri.toString());
+        });
+
+        event.added.forEach(initializeWorkspace);
+    });
+
+    function initializeWorkspace(workspaceFolder: vscode.WorkspaceFolder) {
+        if (isPluginActiveInWorkspace(workspaceFolder)) {
+            const state = {
+                activeEditor: undefined as vscode.TextEditor | undefined,
+                decorationType: undefined,
+                translations: {},
+                displayLanguage: '',
+                localePath: '',
+                configJsonPath: path.join(workspaceFolder.uri.fsPath, '.iris-i18n.json'),
+            };
+            workspaceStates.set(workspaceFolder.uri.toString(), state);
+
+            readConfigFileForWorkspace(workspaceFolder);
+            createDecorationTypeForWorkspace(workspaceFolder);
+            updateDecorationsForWorkspace(workspaceFolder);
+            watchLocaleFilesForWorkspace(workspaceFolder);
+
+            context.subscriptions.push(
+                vscode.window.onDidChangeActiveTextEditor((editor) => {
+                    if (
+                        editor &&
+                        editor.document.uri.scheme === 'file' &&
+                        editor.document.uri.fsPath.startsWith(workspaceFolder.uri.fsPath)
+                    ) {
+                        state.activeEditor = editor;
+                        updateDecorationsForWorkspace(workspaceFolder);
+                    }
+                }),
+                vscode.workspace.onDidChangeTextDocument((event) => {
+                    if (state.activeEditor && event.document === state.activeEditor.document) {
+                        updateDecorationsForWorkspace(workspaceFolder);
+                    }
+                }),
+            );
+        }
     }
-
-    readConfigFile();
-    createDecorationType();
-    updateDecorations();
-    watchLocaleFiles();
-
-    vscode.window.onDidChangeActiveTextEditor(
-        (editor) => {
-            activeEditor = editor;
-            if (editor && editor.document.languageId === 'go') {
-                updateDecorations();
-            }
-        },
-        null,
-        context.subscriptions,
-    );
-
-    vscode.workspace.onDidChangeTextDocument(
-        (event) => {
-            if (
-                activeEditor &&
-                event.document === activeEditor.document &&
-                activeEditor.document.languageId === 'go'
-            ) {
-                updateDecorations();
-            }
-        },
-        null,
-        context.subscriptions,
-    );
-
-    vscode.workspace.onDidChangeWorkspaceFolders(
-        () => {
-            if (isPluginActive()) {
-                readConfigFile();
-                createDecorationType();
-                updateDecorations();
-                watchLocaleFiles();
-            } else {
-                // clean up
-                activeEditor = undefined;
-                decorationType?.dispose();
-                translations = {};
-                displayLanguage = '';
-                localePath = '';
-            }
-        },
-        null,
-        context.subscriptions,
-    );
 }
 
 /**

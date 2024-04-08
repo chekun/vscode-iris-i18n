@@ -4,6 +4,12 @@
 
 No significant changes
 
+## v1.0.2 (2024-04-08)
+
+No significant changes
+
+[View changes on GitHub](https://github.com/chekun/vscode-iris-i18n/compare/v1.0.1...v1.0.2 '2024-04-08')
+
 ## v1.0.1 (2024-04-08)
 
 No significant changes

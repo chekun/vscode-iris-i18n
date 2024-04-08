@@ -27,3 +27,7 @@
       common.json
       error.json
   ```
+
+- demo screenshot
+
+  <img src="https://github.com/chekun/vscode-iris-i18n/blob/main/assets/screenshot.jpg?raw=true" />
