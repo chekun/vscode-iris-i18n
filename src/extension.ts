@@ -52,16 +52,21 @@ function updateTranslations(): void {
         return;
     }
     translations = {};
-    fs.readdirSync(localePath).forEach((file: string) => {
-        if (path.extname(file) === '.json') {
-            const language = path.basename(file, '.json');
-            const filePath = path.join(localePath, file);
-            try {
-                const translationData = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-                translations[language] = translationData;
-            } catch (error) {
-                console.error(`Error reading ${file}:`, error);
-            }
+    fs.readdirSync(localePath).forEach((languageFolder) => {
+        const languagePath = path.join(localePath, languageFolder);
+        if (fs.statSync(languagePath).isDirectory()) {
+            translations[languageFolder] = {};
+            fs.readdirSync(languagePath).forEach((file) => {
+                if (path.extname(file) === '.json') {
+                    const filePath = path.join(languagePath, file);
+                    try {
+                        const translationData = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+                        Object.assign(translations[languageFolder], translationData);
+                    } catch (error) {
+                        console.error(`Error reading ${file}:`, error);
+                    }
+                }
+            });
         }
     });
     updateDecorations();
@@ -74,7 +79,7 @@ function watchLocaleFiles(): void {
     if (!localePath) {
         return;
     }
-    fs.watch(localePath, (eventType: string, filename: string | null) => {
+    fs.watch(localePath, { recursive: true }, (eventType: string, filename: string | null) => {
         if (eventType === 'change' && path.extname(filename!) === '.json') {
             updateTranslations();
         }

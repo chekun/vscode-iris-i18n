@@ -9,5 +9,5 @@ func (t *Translator) Tr(path string) string {
 
 func main() {
 	ctx := Translator{}
-	ctx.Tr("test.abc.ssss")
+	ctx.Tr("test")
 }
