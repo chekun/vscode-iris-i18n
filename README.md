@@ -8,7 +8,7 @@
 
 - Search "iris i18n" within vscode extensions panel
 - install extension
-- place `.iris-i18n.json` inside your iris project folder, put code in it. `locale_path` is the path relative to your project folder.
+- create and place config file `.iris-i18n.json` inside your iris project folder, put code in it. `locale_path` is the path relative to your project folder.This file is the trigger for this extension to work.
 
   ```json
   {
@@ -27,6 +27,8 @@
       common.json
       error.json
   ```
+
+- workspaces are supported
 
 - demo screenshot
 
