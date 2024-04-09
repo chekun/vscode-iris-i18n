@@ -4,11 +4,11 @@
 
 </div>
 
-> this is first release, a lot of new features will come.
+### How to use
 
-- Search "iris i18n"
+- Search "iris i18n" within vscode extensions panel
 - install extension
-- place `.iris-18n.json` inside your iris project folder, put code in it.
+- place `.iris-i18n.json` inside your iris project folder, put code in it. `locale_path` is the path relative to your project folder.
 
   ```json
   {
@@ -16,7 +16,7 @@
   }
   ```
 
-- currently suports json file with structures below
+- currently only supports json file with structure below
 
   ```bash
   locale_path/
